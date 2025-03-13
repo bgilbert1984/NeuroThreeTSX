@@ -1,89 +1,78 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Loader } from '../Loader';
 
-const WebGLContextHandler = ({ children }) => {
-  const [contextLost, setContextLost] = useState(false);
-  const [recoveryAttempts, setRecoveryAttempts] = useState(0);
-  const [recoveryFailed, setRecoveryFailed] = useState(false);
-  
-  const MAX_RECOVERY_ATTEMPTS = 3;
-  
-  // Handle context loss
-  const handleContextLoss = useCallback((event) => {
-    event.preventDefault(); // Important for context restoration
-    console.warn('WebGL context lost. Attempting to recover...');
-    setContextLost(true);
-    
-    // Increment recovery attempts
-    setRecoveryAttempts((prev) => {
-      const newAttempts = prev + 1;
-      // If we've exceeded max attempts, mark as failed
-      if (newAttempts > MAX_RECOVERY_ATTEMPTS) {
-        setRecoveryFailed(true);
-      }
-      return newAttempts;
-    });
-  }, []);
-  
-  // Handle context restoration
-  const handleContextRestored = useCallback(() => {
-    console.log('WebGL context restored');
-    setContextLost(false);
-    // Don't reset recovery attempts to track total recovery needs
-  }, []);
-  
-  // Set up context loss detection
+interface WebGLContextHandlerProps {
+  children: React.ReactNode;
+}
+
+interface WebGLError {
+  type: 'WEBGL_UNSUPPORTED' | 'WEBGL_ERROR';
+  message: string;
+}
+
+const WebGLContextHandler: React.FC<WebGLContextHandlerProps> = ({ children }) => {
+  const [isWebGLAvailable, setIsWebGLAvailable] = useState<boolean | null>(null);
+  const [error, setError] = useState<WebGLError | null>(null);
+
   useEffect(() => {
-    const detectWebGLContextLoss = (e) => {
-      const canvas = e.target;
-      if (canvas.nodeName === 'CANVAS') {
-        handleContextLoss(e);
+    const checkWebGLSupport = (): void => {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+
+        if (!gl) {
+          setError({
+            type: 'WEBGL_UNSUPPORTED',
+            message: 'WebGL is not supported in your browser'
+          });
+          setIsWebGLAvailable(false);
+          return;
+        }
+
+        // Check for required extensions and capabilities
+        const extensions = gl.getSupportedExtensions();
+        const requiredExtensions = ['OES_texture_float', 'WEBGL_depth_texture'];
+        
+        const missingExtensions = requiredExtensions.filter(
+          ext => !extensions?.includes(ext)
+        );
+
+        if (missingExtensions.length > 0) {
+          setError({
+            type: 'WEBGL_ERROR',
+            message: `Missing required WebGL extensions: ${missingExtensions.join(', ')}`
+          });
+          setIsWebGLAvailable(false);
+          return;
+        }
+
+        setIsWebGLAvailable(true);
+      } catch (err) {
+        setError({
+          type: 'WEBGL_ERROR',
+          message: err instanceof Error ? err.message : 'Unknown WebGL error'
+        });
+        setIsWebGLAvailable(false);
       }
     };
-    
-    const detectWebGLContextRestoration = (e) => {
-      const canvas = e.target;
-      if (canvas.nodeName === 'CANVAS') {
-        handleContextRestored();
-      }
-    };
-    
-    // Add event listeners to window to catch events from any canvas
-    window.addEventListener('webglcontextlost', detectWebGLContextLoss);
-    window.addEventListener('webglcontextrestored', detectWebGLContextRestoration);
-    
-    return () => {
-      window.removeEventListener('webglcontextlost', detectWebGLContextLoss);
-      window.removeEventListener('webglcontextrestored', detectWebGLContextRestoration);
-    };
-  }, [handleContextLoss, handleContextRestored]);
-  
-  // Display error message when context is lost
-  if (contextLost) {
+
+    checkWebGLSupport();
+  }, []);
+
+  if (isWebGLAvailable === null) {
+    return <Loader message="Checking WebGL support..." />;
+  }
+
+  if (!isWebGLAvailable) {
     return (
       <div className="webgl-error">
-        <div className="webgl-error-content">
-          <h2>WebGL Context Lost</h2>
-          {recoveryFailed ? (
-            <div>
-              <p>Unable to recover the 3D rendering context after multiple attempts.</p>
-              <p>This may be due to hardware limitations or browser issues.</p>
-              <button onClick={() => window.location.reload()}>
-                Reload Page
-              </button>
-            </div>
-          ) : (
-            <div>
-              <p>Your browser's 3D rendering context was lost. Attempting to recover...</p>
-              <p>Recovery attempt: {recoveryAttempts}/{MAX_RECOVERY_ATTEMPTS}</p>
-              <div className="loading-spinner"></div>
-            </div>
-          )}
-        </div>
+        <h2>WebGL Error</h2>
+        <p>{error?.message || 'Unable to initialize WebGL'}</p>
+        <p>Please try a different browser or device that supports WebGL</p>
       </div>
     );
   }
-  
-  // If everything is fine, render children
+
   return <>{children}</>;
 };
 

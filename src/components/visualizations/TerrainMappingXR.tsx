@@ -1,17 +1,19 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useXR, useController, Interactive } from '@react-three/xr';
+import { Text } from '@react-three/drei';
 import * as THREE from 'three';
+import { VisualizationProps, TerrainType } from '../../types';
 
-export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
+export const TerrainMappingXR: React.FC<VisualizationProps> = ({ position = [0, 0, 0], scale = 1 }) => {
   const { isPresenting } = useXR();
-  const terrainRef = useRef();
-  const scanBarRef = useRef();
-  const dataPointsRef = useRef();
+  const terrainRef = useRef<THREE.Mesh>(null);
+  const scanBarRef = useRef<THREE.Mesh>(null);
+  const dataPointsRef = useRef<THREE.Points>(null);
   
-  const [scanProgress, setScanProgress] = useState(0);
-  const [terrainType, setTerrainType] = useState('mountains');
-  const [interactMode, setInteractMode] = useState(false);
+  const [scanProgress, setScanProgress] = useState<number>(0);
+  const [terrainType, setTerrainType] = useState<TerrainType>('mountains');
+  const [interactMode, setInteractMode] = useState<boolean>(false);
   
   // XR controller for interaction
   const rightController = useController('right');
@@ -28,40 +30,34 @@ export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
     const heightData = new Float32Array(res * res);
     
     // Generate different noise patterns based on the terrain type
-    let noiseScale = 0.1;
     let noiseHeight = 1.0;
     let noiseBaseline = 0;
     
     switch (terrainType) {
       case 'mountains':
-        noiseScale = 0.15;
         noiseHeight = 1.0;
         noiseBaseline = 0;
         break;
       case 'canyon':
-        noiseScale = 0.08;
         noiseHeight = 1.2;
         noiseBaseline = -0.5;
         break;
       case 'coastal':
-        noiseScale = 0.12;
         noiseHeight = 0.6;
         noiseBaseline = -0.3;
         break;
       case 'urban':
-        noiseScale = 0.3;
         noiseHeight = 0.5;
         noiseBaseline = 0;
         break;
       default:
         // Default to mountains
-        noiseScale = 0.15;
         noiseHeight = 1.0;
         noiseBaseline = 0;
     }
     
     // Simple noise function for height generation
-    const noise = (nx, ny) => {
+    const noise = (nx: number, ny: number): number => {
       // Simple implementation of Perlin-like noise
       const sin0 = Math.sin(nx * 1.0) * 0.5 + 0.5;
       const sin1 = Math.sin(ny * 1.0) * 0.5 + 0.5;
@@ -144,105 +140,91 @@ export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
     return { heightData, positions, colors };
   }, [resolution, range, terrainType, heightScale]);
 
-  // Update animation
-  useFrame(({ clock }) => {
+  // Update animation with proper TypeScript types
+  useFrame(({ clock }): void => {
     const time = clock.getElapsedTime();
-    const scanPos = ((time * scanSpeed) % 2) - 1; // -1 to 1, looping
-    setScanProgress((scanPos + 1) / 2); // Convert to 0-1 range
+    const scanPos = ((time * scanSpeed) % 2) - 1;
+    setScanProgress((scanPos + 1) / 2);
     
     if (scanBarRef.current) {
       scanBarRef.current.position.z = scanPos * (range / 2);
     }
     
     if (dataPointsRef.current) {
-      // Only show points that have been "scanned"
       const positions = dataPointsRef.current.geometry.attributes.position;
-      const alphas = [];
+      const alphas: number[] = [];
       
       for (let i = 0; i < positions.count; i++) {
         const z = positions.getZ(i);
-        const normalized = (z / (range/2) + 1) / 2; // Convert -range/2 to range/2 into 0-1
-        
-        // Points are visible if they've been scanned
+        const normalized = (z / (range/2) + 1) / 2;
         const alpha = normalized <= scanProgress ? 1 : 0;
         alphas.push(alpha);
       }
       
-      // Update alpha attribute
       dataPointsRef.current.geometry.setAttribute(
         'alpha',
         new THREE.Float32BufferAttribute(alphas, 1)
       );
     }
     
-    if (terrainRef.current) {
+    if (terrainRef.current?.material instanceof THREE.MeshStandardMaterial) {
       const material = terrainRef.current.material;
       if (material.displacementMap) {
-        // Update displacement map animation
         material.displacementScale = heightScale * (0.8 + Math.sin(time * 0.2) * 0.1);
       }
     }
     
-    // Interact with VR controller
+    // Handle XR controller interaction
     if (isPresenting && rightController && interactMode) {
-      // Use controller position to manipulate terrain
       const controllerPos = rightController.grip.position;
-      
-      // Map controller position to terrain coordinates
       const x = ((controllerPos.x - position[0]) / range + 0.5) * resolution;
       const z = ((controllerPos.z - position[2]) / range + 0.5) * resolution;
       
-      // Only modify if controller is over the terrain
       if (x >= 0 && x < resolution && z >= 0 && z < resolution) {
-        // Modify terrain based on controller's Y position
         const idx = Math.floor(x) * resolution + Math.floor(z);
         if (heightData[idx] !== undefined) {
-          // Raise or lower terrain based on controller's Y position
           const targetHeight = (controllerPos.y - position[1]) / heightScale;
           heightData[idx] = THREE.MathUtils.lerp(heightData[idx], targetHeight, 0.1);
-          
-          // Update terrain geometry
           updateTerrainGeometry();
         }
       }
     }
   });
   
-  // Update terrain based on height data
-  const updateTerrainGeometry = () => {
-    if (terrainRef.current) {
-      const geometry = terrainRef.current.geometry;
-      
-      // Update vertices based on height data
-      const positions = geometry.attributes.position.array;
-      
-      for (let i = 0; i < resolution + 1; i++) {
-        for (let j = 0; j < resolution + 1; j++) {
-          // Sample height data, with edge handling
-          const sampleI = Math.min(resolution - 1, i);
-          const sampleJ = Math.min(resolution - 1, j);
-          const height = heightData[sampleI * resolution + sampleJ];
-          
-          const index = (i * (resolution + 1) + j) * 3 + 1; // Y component
-          positions[index] = height * heightScale;
-        }
+  // Update terrain geometry with proper type checking
+  const updateTerrainGeometry = (): void => {
+    if (!terrainRef.current) return;
+    
+    const geometry = terrainRef.current.geometry;
+    if (!(geometry instanceof THREE.BufferGeometry)) return;
+    
+    const positions = geometry.attributes.position.array;
+    
+    for (let i = 0; i < resolution + 1; i++) {
+      for (let j = 0; j < resolution + 1; j++) {
+        const sampleI = Math.min(resolution - 1, i);
+        const sampleJ = Math.min(resolution - 1, j);
+        const height = heightData[sampleI * resolution + sampleJ];
+        
+        const index = (i * (resolution + 1) + j) * 3 + 1;
+        positions[index] = height * heightScale;
       }
-      
-      geometry.attributes.position.needsUpdate = true;
-      geometry.computeVertexNormals();
     }
+    
+    geometry.attributes.position.needsUpdate = true;
+    geometry.computeVertexNormals();
   };
   
-  // XR interactions - toggle terrain type
-  const handleToggleTerrain = () => {
-    const terrainTypes = ['mountains', 'canyon', 'coastal', 'urban'];
+  // Terrain type toggle with type safety
+  const handleToggleTerrain = (): void => {
+    const terrainTypes: TerrainType[] = ['mountains', 'canyon', 'coastal', 'urban'];
     const currentIndex = terrainTypes.indexOf(terrainType);
     const nextIndex = (currentIndex + 1) % terrainTypes.length;
     setTerrainType(terrainTypes[nextIndex]);
   };
   
-  // Toggle interaction mode
-  const handleToggleInteract = () => {
+  // Interaction mode toggle
+  const handleToggleInteract = (): void => {
     setInteractMode(!interactMode);
   };
   
@@ -350,10 +332,15 @@ export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
               <boxGeometry args={[0.2, 0.1, 0.05]} />
               <meshStandardMaterial color="#4488ff" />
             </mesh>
-            <mesh position={[-0.5, 0, 0.1]} scale={0.5}>
-              <textGeometry args={["Terrain", {font: undefined, size: 0.05, height: 0.01}]} />
-              <meshBasicMaterial color="white" />
-            </mesh>
+            <Text
+              position={[-0.5, 0, 0.1]}
+              fontSize={0.05}
+              color="white"
+              anchorX="center"
+              anchorY="middle"
+            >
+              Terrain
+            </Text>
           </Interactive>
           
           <Interactive onSelect={handleToggleInteract}>
@@ -361,10 +348,15 @@ export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
               <boxGeometry args={[0.2, 0.1, 0.05]} />
               <meshStandardMaterial color={interactMode ? "#ff4488" : "#44ff88"} />
             </mesh>
-            <mesh position={[0.5, 0, 0.1]} scale={0.5}>
-              <textGeometry args={["Edit", {font: undefined, size: 0.05, height: 0.01}]} />
-              <meshBasicMaterial color="white" />
-            </mesh>
+            <Text
+              position={[0.5, 0, 0.1]}
+              fontSize={0.05}
+              color="white"
+              anchorX="center"
+              anchorY="middle"
+            >
+              Edit
+            </Text>
           </Interactive>
         </group>
       )}
@@ -375,13 +367,16 @@ export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
         <meshBasicMaterial color="#000000" opacity={0.7} transparent />
       </mesh>
       
-      <mesh position={[range/2 + 0.25, 0.2, 0]} rotation={[0, -Math.PI/2, 0]}>
-        <textGeometry 
-          args={[`${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)}`, 
-                {font: undefined, size: 0.05, height: 0.01}]} 
-        />
-        <meshBasicMaterial color="white" />
-      </mesh>
+      <Text
+        position={[range/2 + 0.25, 0.2, 0]}
+        rotation={[0, -Math.PI/2, 0]}
+        fontSize={0.05}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {terrainType.charAt(0).toUpperCase() + terrainType.slice(1)}
+      </Text>
       
       {/* Progress indicator */}
       <mesh position={[0, heightScale + 0.5, range/2 + 0.2]} rotation={[0, Math.PI, 0]}>
@@ -389,13 +384,16 @@ export const TerrainMappingXR = ({ position = [0, 0, 0], scale = 1 }) => {
         <meshBasicMaterial color="#000000" opacity={0.7} transparent />
       </mesh>
       
-      <mesh position={[0, heightScale + 0.5, range/2 + 0.25]} rotation={[0, Math.PI, 0]}>
-        <textGeometry 
-          args={[`Scan: ${Math.floor(scanProgress * 100)}%`, 
-                {font: undefined, size: 0.05, height: 0.01}]} 
-        />
-        <meshBasicMaterial color="white" />
-      </mesh>
+      <Text
+        position={[0, heightScale + 0.5, range/2 + 0.25]}
+        rotation={[0, Math.PI, 0]}
+        fontSize={0.05}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {`Scan: ${Math.floor(scanProgress * 100)}%`}
+      </Text>
     </group>
   );
 };

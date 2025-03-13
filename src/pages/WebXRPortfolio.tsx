@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { 
   VRButton, 
@@ -15,11 +15,12 @@ import {
   Text, 
   Sky, 
   Stars,
-  Billboard, 
-  PresentationControls 
+  Billboard as DreiBoard
 } from '@react-three/drei';
+import * as THREE from 'three';
+import { XRNavigatorProps } from '../types';
 
-// Import our visualization components adapted for WebXR
+// Import visualization components with correct names
 import { LlamaCoreXR } from '../components/visualizations/LlamaCoreXR';
 import { ParticleSystemXR } from '../components/visualizations/ParticleSystemXR';
 import { NetworkVisualizationXR } from '../components/visualizations/NetworkVisualizationXR';
@@ -28,24 +29,23 @@ import { NeuralNetworkXR } from '../components/visualizations/NeuralNetworkXR';
 import { PortfolioEnvironment } from '../components/environment/PortfolioEnvironment';
 import XRMenu from '../components/xr/XRMenu';
 
-// XR Navigator component to handle movement in XR
-const XRNavigator = () => {
+type ExperienceType = 'llama' | 'particles' | 'network' | 'terrain' | 'neural' | null;
+
+const XRNavigator: React.FC<XRNavigatorProps> = ({ onTeleport }) => {
   const { player } = useXR();
   
-  const handleTeleport = (position) => {
-    if (player) {
-      player.position.copy(position);
-    }
-  };
-  
   return (
-    <XRMenu onTeleport={handleTeleport} />
+    <XRMenu onTeleport={(position: THREE.Vector3) => {
+      if (player) {
+        player.position.copy(position);
+        onTeleport(position);
+      }
+    }} />
   );
 };
 
-// Main WebXR Portfolio component
-const WebXRPortfolio = () => {
-  const [activeExperience, setActiveExperience] = useState(null);
+const WebXRPortfolio: React.FC = () => {
+  const [activeExperience, setActiveExperience] = useState<ExperienceType>(null);
   
   return (
     <div className="webxr-container">
@@ -60,7 +60,10 @@ const WebXRPortfolio = () => {
           {/* XR interactions */}
           <Hands />
           <Controllers />
-          <XRNavigator />
+          <XRNavigator onTeleport={(position: THREE.Vector3) => {
+            // We can log teleport events or implement additional behaviors here
+            console.log(`Teleported to ${position.x}, ${position.y}, ${position.z}`);
+          }} />
           
           {/* Portfolio environment */}
           <PortfolioEnvironment />
@@ -69,14 +72,14 @@ const WebXRPortfolio = () => {
           <Environment preset="sunset" />
           
           {/* Welcome Text */}
-          <Billboard position={[0, 2, -5]} args={[3, 1.5]}>
+          <DreiBoard position={[0, 2, -5]}>
             <Text fontSize={0.2} color="#ffffff" anchorX="center" anchorY="middle">
               Welcome to my WebXR Tech Portfolio
             </Text>
             <Text position={[0, -0.3, 0]} fontSize={0.1} color="#ccccff" anchorX="center" anchorY="middle">
               Interact with the exhibits using your controllers
             </Text>
-          </Billboard>
+          </DreiBoard>
           
           {/* Portfolio visualizations */}
           <group position={[-4, 0, 0]}>

@@ -4,7 +4,6 @@ import {
   PresentationControls, 
   Environment, 
   Float, 
-  Text, 
   Sky, 
   Stars,
   PerspectiveCamera
@@ -12,16 +11,27 @@ import {
 import { motion } from 'framer-motion';
 
 // Import visualization components
-import { LlamaCore } from '../components/visualizations/LlamaCoreXR';
+import { LlamaCoreXR } from '../components/visualizations/LlamaCoreXR';
 import { ParticleSystemXR } from '../components/visualizations/ParticleSystemXR';
 import { NetworkVisualizationXR } from '../components/visualizations/NetworkVisualizationXR';
 import { TerrainMappingXR } from '../components/visualizations/TerrainMappingXR';
 import { NeuralNetworkXR } from '../components/visualizations/NeuralNetworkXR';
+import { Section } from '../types';
 
-const DesktopPortfolio = () => {
-  const [activeSection, setActiveSection] = useState(0);
-  const [canvasVisible, setCanvasVisible] = useState(false);
-  const containerRef = useRef(null);
+const sections: Section[] = [
+  { id: 'intro', title: 'Welcome to WebXR Tech Portfolio' },
+  { id: 'llama', title: 'LlamaCore Visualization' },
+  { id: 'particles', title: 'Particle System' },
+  { id: 'network', title: 'Network Visualization' },
+  { id: 'terrain', title: 'Terrain Mapping' },
+  { id: 'neural', title: 'Neural Network' },
+  { id: 'webxr', title: 'Try in WebXR' }
+];
+
+const DesktopPortfolio: React.FC = () => {
+  const [activeSection, setActiveSection] = useState<number>(0);
+  const [canvasVisible, setCanvasVisible] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Show canvas after a short delay for smoother loading
   useEffect(() => {
@@ -31,19 +41,8 @@ const DesktopPortfolio = () => {
     return () => clearTimeout(timer);
   }, []);
   
-  // Portfolio sections
-  const sections = [
-    { id: 'intro', title: 'Welcome to WebXR Tech Portfolio' },
-    { id: 'llama', title: 'LlamaCore Visualization' },
-    { id: 'particles', title: 'Particle System' },
-    { id: 'network', title: 'Network Visualization' },
-    { id: 'terrain', title: 'Terrain Mapping' },
-    { id: 'neural', title: 'Neural Network' },
-    { id: 'webxr', title: 'Try in WebXR' }
-  ];
-  
   // Handle section navigation
-  const navigateToSection = (index) => {
+  const navigateToSection = (index: number): void => {
     setActiveSection(index);
   };
   
@@ -216,7 +215,7 @@ const DesktopPortfolio = () => {
               >
                 <Float rotationIntensity={0.4} floatIntensity={0.4}>
                   {/* Different visualization based on active section */}
-                  {activeSection === 1 && <LlamaCore position={[0, 0, 0]} scale={1.5} />}
+                  {activeSection === 1 && <LlamaCoreXR position={[0, 0, 0]} scale={1.5} />}
                   {activeSection === 2 && <ParticleSystemXR position={[0, 0, 0]} scale={0.3} />}
                   {activeSection === 3 && <NetworkVisualizationXR position={[0, 0, 0]} scale={1} />}
                   {activeSection === 4 && <TerrainMappingXR position={[0, 0, 0]} scale={0.5} />}

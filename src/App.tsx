@@ -6,15 +6,35 @@ import WebXRPortfolio from './pages/WebXRPortfolio';
 import Loader from './components/Loader';
 import WebGLContextHandler from './components/utils/WebGLContextHandler';
 
-const App = () => {
-  const [webXRSupported, setWebXRSupported] = useState(null);
+// WebXR type declarations
+declare global {
+  interface Navigator {
+    xr?: XRSystem;
+  }
+
+  interface XRSystem {
+    isSessionSupported(mode: string): Promise<boolean>;
+    requestSession(mode: string, options?: XRSessionInit): Promise<XRSession>;
+  }
+
+  interface XRSession {
+    end(): Promise<void>;
+  }
+
+  interface XRSessionInit {
+    optionalFeatures?: string[];
+    requiredFeatures?: string[];
+  }
+}
+
+const App: React.FC = () => {
+  const [webXRSupported, setWebXRSupported] = useState<boolean | null>(null);
 
   // Check WebXR support on mount
   React.useEffect(() => {
-    const checkWebXRSupport = async () => {
-      if ('xr' in navigator) {
+    const checkWebXRSupport = async (): Promise<void> => {
+      if (navigator.xr) {
         try {
-          // Check if immersive-vr or immersive-ar session is supported
           const vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
           const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
           setWebXRSupported(vrSupported || arSupported);

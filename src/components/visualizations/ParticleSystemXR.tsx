@@ -2,115 +2,152 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useXR } from '@react-three/xr';
 import * as THREE from 'three';
+import { VisualizationProps } from '../../types';
 
-export const ParticleSystemXR = ({ position = [0, 0, 0], scale = 1 }) => {
+interface ParticleAttributes {
+  velocity: THREE.Vector3;
+  acceleration: THREE.Vector3;
+  color: THREE.Color;
+  size: number;
+  life: number;
+  maxLife: number;
+}
+
+export const ParticleSystemXR: React.FC<VisualizationProps> = ({ position = [0, 0, 0], scale = 1 }) => {
   const { isPresenting } = useXR();
-  const ref = useRef();
+  const pointsRef = useRef<THREE.Points>(null);
   
-  // Reduce particle count in VR for performance
-  const particleCount = isPresenting ? 5000 : 20000;
-  
-  // Create particles with computed positions, sizes, and colors
-  const particles = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < particleCount; i++) {
-      const t = Math.random() * 100;
-      const factor = 20 + Math.random() * 100;
-      const speed = 0.01 + Math.random() / 200;
-      const xFactor = -50 + Math.random() * 100;
-      const yFactor = -50 + Math.random() * 100;
-      const zFactor = -50 + Math.random() * 100;
-      
-      // Calibrate scale for XR viewing
-      const adjustedXFactor = xFactor * scale;
-      const adjustedYFactor = yFactor * scale;
-      const adjustedZFactor = zFactor * scale;
-      
-      temp.push({
-        t,
-        factor,
-        speed,
-        xFactor: adjustedXFactor,
-        yFactor: adjustedYFactor,
-        zFactor: adjustedZFactor,
-        mx: 0,
-        my: 0
-      });
-    }
-    return temp;
-  }, [particleCount, scale]);
-  
-  // Create geometry and material
-  const [geo, mat, dummy] = useMemo(() => {
-    const geo = new THREE.SphereGeometry(0.05, 10, 10);
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color("#5786F5"),
-      roughness: 0.5,
-      metalness: 0.8,
-      emissive: new THREE.Color("#000222")
-    });
-    return [geo, mat, new THREE.Object3D()];
-  }, []);
-  
-  useFrame((state) => {
-    const mesh = ref.current;
-    if (!mesh) return;
+  // Generate particles
+  const { positions, colors, particles } = useMemo(() => {
+    const particleCount = isPresenting ? 5000 : 10000;
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const particles: ParticleAttributes[] = [];
     
-    // Animate each particle
-    particles.forEach((particle, i) => {
-      let { t, factor, speed, xFactor, yFactor, zFactor } = particle;
-      
-      // Update timing factors
-      t = particle.t += speed / 2;
-      const a = Math.cos(t) + Math.sin(t * 1) / 10;
-      const b = Math.sin(t) + Math.cos(t * 2) / 10;
-      const s = Math.max(1.5, Math.cos(t));
-      
-      // Set the instance position
-      dummy.position.set(
-        (particle.mx / 10) * a + xFactor + Math.cos((t / 10) * factor) + (Math.sin(t * 1) * factor) / 10,
-        (particle.my / 10) * b + yFactor + Math.sin((t / 10) * factor) + (Math.cos(t * 2) * factor) / 10,
-        (particle.my / 10) * b + zFactor + Math.cos((t / 10) * factor) + (Math.sin(t * 3) * factor) / 10
+    for (let i = 0; i < particleCount; i++) {
+      const pos = new THREE.Vector3(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2
       );
       
-      // Prevent particles from going too far in VR
-      if (isPresenting) {
-        dummy.position.x = THREE.MathUtils.clamp(dummy.position.x, -10, 10);
-        dummy.position.y = THREE.MathUtils.clamp(dummy.position.y, -10, 10);
-        dummy.position.z = THREE.MathUtils.clamp(dummy.position.z, -10, 10);
+      positions[i * 3] = pos.x;
+      positions[i * 3 + 1] = pos.y;
+      positions[i * 3 + 2] = pos.z;
+      
+      const color = new THREE.Color().setHSL(
+        Math.random(),
+        0.8,
+        0.5 + Math.random() * 0.5
+      );
+      
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+      
+      particles.push({
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.02,
+          (Math.random() - 0.5) * 0.02,
+          (Math.random() - 0.5) * 0.02
+        ),
+        acceleration: new THREE.Vector3(),
+        color,
+        size: (0.5 + Math.random() * 0.5) * scale,
+        life: Math.random(),
+        maxLife: 0.5 + Math.random() * 2
+      });
+    }
+    
+    return { positions, colors, particles };
+  }, [isPresenting, scale]);
+  
+  // Animation loop
+  useFrame((_, delta) => {
+    if (!pointsRef.current) return;
+    
+    const positions = pointsRef.current.geometry.attributes.position;
+    const colors = pointsRef.current.geometry.attributes.color;
+    
+    particles.forEach((particle, i) => {
+      // Update life
+      particle.life += delta;
+      if (particle.life > particle.maxLife) {
+        particle.life = 0;
+        // Reset position
+        const pos = new THREE.Vector3(
+          positions.getX(i),
+          positions.getY(i),
+          positions.getZ(i)
+        );
+        pos.set(
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2
+        );
+        positions.setXYZ(i, pos.x, pos.y, pos.z);
       }
       
-      // Set the instance scale and rotation
-      dummy.scale.set(s * 0.3, s * 0.3, s * 0.3);
-      dummy.rotation.set(s * 5, s * 5, s * 5);
-      dummy.updateMatrix();
+      // Update velocity and position
+      particle.velocity.add(particle.acceleration.multiplyScalar(delta));
+      const pos = new THREE.Vector3(
+        positions.getX(i),
+        positions.getY(i),
+        positions.getZ(i)
+      );
+      pos.add(particle.velocity);
       
-      // Apply the matrix at the right position
-      mesh.setMatrixAt(i, dummy.matrix);
+      // Boundary check
+      if (Math.abs(pos.x) > 1) particle.velocity.x *= -1;
+      if (Math.abs(pos.y) > 1) particle.velocity.y *= -1;
+      if (Math.abs(pos.z) > 1) particle.velocity.z *= -1;
+      
+      positions.setXYZ(i, pos.x, pos.y, pos.z);
+      
+      // Update color based on velocity
+      const speed = particle.velocity.length();
+      particle.color.setHSL(
+        (speed * 10) % 1,
+        0.8,
+        0.5 + (speed * 5)
+      );
+      colors.setXYZ(i, particle.color.r, particle.color.g, particle.color.b);
     });
     
-    // Update the instance matrices
-    mesh.instanceMatrix.needsUpdate = true;
+    positions.needsUpdate = true;
+    colors.needsUpdate = true;
   });
   
   return (
-    <group position={position}>
-      <pointLight distance={40} intensity={isPresenting ? 4 : 8} color="#F8C069">
-        <mesh scale={[0.5, 0.5, 3]}>
-          <dodecahedronGeometry args={[1.5 * scale, 0]} />
-          <meshBasicMaterial color="#F8C069" />
-        </mesh>
-      </pointLight>
-      
-      <instancedMesh ref={ref} args={[geo, mat, particleCount]}>
-        <sphereGeometry args={[0.1 * scale, 10, 10]} />
-        <meshStandardMaterial 
-          color="#A0C5FF" 
-          roughness={0.5}
-          emissive="#003380"
-          emissiveIntensity={0.5}
+    <points ref={pointsRef} position={position} scale={scale}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={positions.length / 3}
+          array={positions}
+          itemSize={3}
         />
-      </instancedMesh>
-    </group>
+        <bufferAttribute
+          attach="attributes-color"
+          count={colors.length / 3}
+          array={colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.02}
+        vertexColors
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        sizeAttenuation
+        onBeforeCompile={(shader: THREE.Shader) => {
+          shader.vertexShader = shader.vertexShader.replace(
+            'gl_PointSize = size;',
+            'gl_PointSize = size * (300.0 / -mvPosition.z);'
+          );
+        }}
+      />
+    </points>
   );
 };

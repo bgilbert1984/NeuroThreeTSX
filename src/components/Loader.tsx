@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { LoaderProps } from '../types';
 
-const Loader = ({ message = 'Loading...' }) => {
+export const Loader: React.FC<LoaderProps> = ({ message = 'Loading...' }) => {
   return (
     <div className="loader-container">
       <motion.div 

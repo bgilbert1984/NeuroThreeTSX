@@ -2,12 +2,13 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useXR } from '@react-three/xr';
 import * as THREE from 'three';
+import { VisualizationProps } from '../../types';
 
 // XR-optimized version of LlamaCore component
-export const LlamaCoreXR = ({ position = [0, 0, 0], scale = 1 }) => {
-  const groupRef = useRef();
-  const [health, setHealth] = useState(1);
-  const particlesRef = useRef();
+export const LlamaCoreXR: React.FC<VisualizationProps> = ({ position = [0, 0, 0], scale = 1 }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const [health, setHealth] = useState<number>(1);
+  const particlesRef = useRef<THREE.Group>(null);
   const { isPresenting } = useXR();
 
   // Decrease health over time for the visual effect
@@ -56,7 +57,7 @@ export const LlamaCoreXR = ({ position = [0, 0, 0], scale = 1 }) => {
   }, [scale, isPresenting]);
 
   // Animation loop
-  useFrame((_, delta) => {
+  useFrame((_, delta: number) => {
     if (groupRef.current) {
       // Rotate the model
       groupRef.current.rotation.y += delta * 0.5;
@@ -70,7 +71,7 @@ export const LlamaCoreXR = ({ position = [0, 0, 0], scale = 1 }) => {
 
   return (
     <group position={position}>
-      <group ref={groupRef} scale={scale}>
+      <group ref={groupRef.current} scale={scale}>
         {/* Main Llama body */}
         <mesh castShadow receiveShadow>
           <icosahedronGeometry args={[1, 1]} />
