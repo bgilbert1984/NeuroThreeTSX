@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -14,7 +15,10 @@ export default defineConfig({
     host: true,
     port: 3000,
     // Important for WebXR development - use HTTPS in development
-    https: true,
+    https: {
+      key: fs.readFileSync('./certificates/localhost-key.pem'),
+      cert: fs.readFileSync('./certificates/localhost.pem'),
+    },
   },
   build: {
     outDir: 'dist',

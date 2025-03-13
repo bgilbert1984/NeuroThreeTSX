@@ -189,9 +189,9 @@ const DesktopPortfolio: React.FC = () => {
               </ul>
               
               <div className="webxr-cta">
-                <a href="/xr" className="webxr-button">Launch in WebXR</a>
+                <a href="#/xr" className="webxr-button">Launch in WebXR</a>
                 <span className="or">or</span>
-                <a href="/xr?ar=1" className="webxr-button ar">Launch in AR</a>
+                <a href="#/xr?ar=1" className="webxr-button ar">Launch in AR</a>
               </div>
               
               <p className="device-note">Note: WebXR requires a compatible device and browser</p>

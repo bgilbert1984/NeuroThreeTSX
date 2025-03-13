@@ -1,5 +1,5 @@
 import React, { useState, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import DesktopPortfolio from './pages/DesktopPortfolio';
 import WebXRPortfolio from './pages/WebXRPortfolio';
