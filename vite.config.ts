@@ -1,30 +1,36 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import fs from 'fs'
-import path from 'path'
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/',  // Using absolute paths
-  server: {
-    https: {
-      key: fs.readFileSync(path.resolve(__dirname, 'certificates/localhost-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, 'certificates/localhost.pem')),
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
+    css: {
+      modules: {
+        classNameStrategy: 'non-scoped',
+      },
     },
-    host: true,
-    port: 3001,
-    proxy: {},
-    strictPort: true,
-    open: true
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets'
+    coverage: {
+      provider: 'c8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'dist/',
+        '.eslintrc.js',
+        'vite.config.ts',
+        'vitest.config.ts',
+        'test/setup.ts',
+      ],
+    },
+    include: ['**/*.test.{ts,tsx}'],
+    exclude: ['node_modules', 'dist'],
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
     }
-  },
-  root: './' // Specify the root directory where index.html is located
-})
+  }
+});
