@@ -108,7 +108,37 @@ Object.defineProperty(navigator, 'xr', {
   },
 });
 
-// Mock for WebGLContextHandler
-vi.mock('../src/components/utils/WebGLContextHandler', () => ({
-  default: ({ children }) => children,
-}));
+// Three.js mocks
+vi.mock('three', async () => {
+  const actual = await vi.importActual('three');
+  return {
+    ...actual,
+    WebGLRenderer: vi.fn().mockImplementation(() => ({
+      setSize: vi.fn(),
+      setPixelRatio: vi.fn(),
+      render: vi.fn(),
+      shadowMap: {},
+      domElement: document.createElement('canvas'),
+      dispose: vi.fn(),
+    })),
+  };
+});
+
+// Mock React Three Fiber
+vi.mock('@react-three/fiber', async () => {
+  const actual = await vi.importActual('@react-three/fiber');
+  return {
+    ...actual,
+    useFrame: vi.fn(),
+  };
+});
+
+// Mock React Three XR
+vi.mock('@react-three/xr', async () => {
+  const actual = await vi.importActual('@react-three/xr');
+  return {
+    ...actual,
+    useXR: vi.fn(() => ({ isPresenting: false })),
+    Interactive: ({ children }) => children,
+  };
+});

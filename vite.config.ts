@@ -8,11 +8,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./test/setup.ts'],
-    css: {
-      modules: {
-        classNameStrategy: 'non-scoped',
-      },
-    },
+    css: true,
     coverage: {
       provider: 'c8',
       reporter: ['text', 'json', 'html'],
