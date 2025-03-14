@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import XRMenu from '../src/components/xr/XRMenu';
+import XRMenu from './XRMenu';
 import * as THREE from 'three';
 
 // Mock React Three XR
 vi.mock('@react-three/xr', () => ({
-  Interactive: ({ children, onSelect }) => (
+  Interactive: ({ children, onSelect }: { children: React.ReactNode; onSelect: () => void }) => (
     <div data-testid="interactive" onClick={() => onSelect()}>
       {children}
     </div>
@@ -14,7 +14,7 @@ vi.mock('@react-three/xr', () => ({
 
 // Mock React Three Drei
 vi.mock('@react-three/drei', () => ({
-  Text: ({ children, ...props }) => (
+  Text: ({ children, ...props }: { children: React.ReactNode; [key: string]: any }) => (
     <div data-testid="text" {...props}>
       {children}
     </div>
@@ -89,8 +89,8 @@ describe('XRMenu Component', () => {
       positions.push(onTeleport.mock.calls[i][0]);
     }
     
-    // Check that each position is different
-    const uniquePositions = new Set(positions.map(JSON.stringify));
+    // Check that each position is different using a proper map function
+    const uniquePositions = new Set(positions.map((pos) => JSON.stringify(pos)));
     expect(uniquePositions.size).toBe(positions.length);
   });
 
@@ -114,9 +114,12 @@ describe('XRMenu Component', () => {
     
     const menuItems = getAllByTestId('interactive');
     
-    // Check that menu items have different positions
-    const positions = menuItems.map(item => item.querySelector('[data-testid="text"]').getAttribute('position'));
-    const uniquePositions = new Set(positions);
+    // Check that menu items have different positions with null check
+    const positions = menuItems.map(item => {
+      const textElement = item.querySelector('[data-testid="text"]');
+      return textElement?.getAttribute('position') || '';
+    });
+    const uniquePositions = new Set(positions.filter(pos => pos !== ''));
     
     // Each menu item should have a unique position
     expect(uniquePositions.size).toBeGreaterThan(1);

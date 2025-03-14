@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import Navigation from '../src/components/Navigation';
+import Navigation from './Navigation';
 
 // Mock useLocation
 vi.mock('react-router-dom', async () => {

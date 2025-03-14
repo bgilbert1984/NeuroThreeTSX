@@ -33,7 +33,7 @@ const XRMenu: React.FC<XRMenuProps> = ({ onTeleport }) => {
           key={option.id}
           onSelect={() => handleTeleport(option.position)}
         >
-          <group position={[0, option.position[1], option.position[2]]}>
+          <group position={option.position}>
             <mesh>
               <boxGeometry args={[0.3, 0.1, 0.05]} />
               <meshStandardMaterial color="#4488ff" />

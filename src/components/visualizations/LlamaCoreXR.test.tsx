@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import { LlamaCoreXR } from '../src/components/visualizations/LlamaCoreXR';
+import LlamaCoreXR from './LlamaCoreXR';
 
 // Mock React Three Fiber
 vi.mock('@react-three/fiber', () => ({
