@@ -20,11 +20,31 @@ interface Link extends d3.SimulationLinkDatum<Node> {
   value: number;
 }
 
-export const NetworkVisualizationXR: React.FC<VisualizationProps> = ({ position = [0, 0, 0], scale = 1 }) => {
+interface ControllerState {
+  isConnected: boolean;
+  buttonPressed: boolean;
+}
+
+export const NetworkVisualizationXR: React.FC<VisualizationProps> = ({ 
+  position = [0, 0, 0], 
+  scale = 1,
+  onNodeSelected = (nodeId: string) => {} 
+}) => {
   const { isPresenting } = useXR();
   const nodesRef = useRef<THREE.Points>(null);
   const edgesRef = useRef<THREE.LineSegments>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [controllerState, setControllerState] = useState<ControllerState>({
+    isConnected: false,
+    buttonPressed: false
+  });
+  
+  // Handle node selection with feedback to parent
+  const handleNodeSelect = (nodeId: string): void => {
+    const newSelection = nodeId === selectedNode ? null : nodeId;
+    setSelectedNode(newSelection);
+    onNodeSelected(newSelection || '');
+  };
 
   // Generate network data
   const { nodes, links, simulation } = useMemo(() => {
@@ -56,13 +76,91 @@ export const NetworkVisualizationXR: React.FC<VisualizationProps> = ({ position 
       .force('charge', d3.forceManyBody().strength(-30))
       .force('center', d3.forceCenter(0, 0))
       .force('collision', d3.forceCollide().radius(0.5));
-
+      
+    // Add third dimension to simulation
+    simulation.force('z', d3.forceZ(0).strength(0.01));
+    
     return { nodes, links, simulation };
   }, [isPresenting]);
 
-  // Update positions in animation loop
+  // Xbox controller support for node manipulation
+  useEffect(() => {
+    const handleGamepadConnected = (event) => {
+      setControllerState(prev => ({ ...prev, isConnected: true }));
+      console.log("Xbox controller connected:", event.gamepad);
+    };
+    
+    const handleGamepadDisconnected = () => {
+      setControllerState(prev => ({ ...prev, isConnected: false }));
+    };
+    
+    window.addEventListener('gamepadconnected', handleGamepadConnected);
+    window.addEventListener('gamepaddisconnected', handleGamepadDisconnected);
+    
+    return () => {
+      window.removeEventListener('gamepadconnected', handleGamepadConnected);
+      window.removeEventListener('gamepaddisconnected', handleGamepadDisconnected);
+    };
+  }, []);
+
+  // Update positions in animation loop and handle controller input
   useFrame(() => {
     if (!nodesRef.current || !edgesRef.current) return;
+
+    // Process Xbox controller input
+    const gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+    const xboxController = gamepads.find(gamepad => 
+      gamepad && (gamepad.id.includes('Xbox') || gamepad.mapping === 'standard')
+    );
+    
+    if (xboxController) {
+      // Use right stick to manipulate the network (rotate/scale)
+      const rightStickX = xboxController.axes[2]; // Right stick X
+      const rightStickY = xboxController.axes[3]; // Right stick Y
+      
+      // Apply rotation to simulation based on right stick
+      if (Math.abs(rightStickX) > 0.1) {
+        nodes.forEach(node => {
+          if (node.x !== undefined && node.z !== undefined) {
+            // Rotate around Y axis
+            const x = node.x;
+            const z = node.z;
+            node.x = x * Math.cos(rightStickX * 0.05) - z * Math.sin(rightStickX * 0.05);
+            node.z = x * Math.sin(rightStickX * 0.05) + z * Math.cos(rightStickX * 0.05);
+          }
+        });
+      }
+      
+      // Scale simulation based on triggers
+      const rightTrigger = xboxController.buttons[7]?.value || 0; // RT
+      const leftTrigger = xboxController.buttons[6]?.value || 0; // LT
+      
+      if (rightTrigger > 0.1 || leftTrigger > 0.1) {
+        const scaleFactor = 1 + (rightTrigger - leftTrigger) * 0.02;
+        nodes.forEach(node => {
+          if (node.x !== undefined && node.y !== undefined && node.z !== undefined) {
+            node.x *= scaleFactor;
+            node.y *= scaleFactor;
+            node.z *= scaleFactor;
+          }
+        });
+      }
+      
+      // A button to select nearest node
+      const aButtonPressed = xboxController.buttons[0]?.pressed;
+      if (aButtonPressed && !controllerState.buttonPressed) {
+        // Find nearest node to controller
+        // In a real implementation, you would use the controller position
+        // For this example, we'll just select a random node
+        const randomNodeIndex = Math.floor(Math.random() * nodes.length);
+        handleNodeSelect(nodes[randomNodeIndex].id);
+      }
+      
+      setControllerState(prev => ({ 
+        ...prev, 
+        buttonPressed: aButtonPressed 
+      }));
+    }
 
     simulation.tick();
 
@@ -125,11 +223,6 @@ export const NetworkVisualizationXR: React.FC<VisualizationProps> = ({ position 
     edgePositions.needsUpdate = true;
     edgeColors.needsUpdate = true;
   });
-
-  // Handle node selection
-  const handleNodeSelect = (nodeId: string): void => {
-    setSelectedNode(nodeId === selectedNode ? null : nodeId);
-  };
 
   return (
     <group position={position}>
@@ -220,6 +313,23 @@ export const NetworkVisualizationXR: React.FC<VisualizationProps> = ({ position 
             opacity={0.8}
             side={THREE.DoubleSide}
           />
+          {/* Add text label here */}
+          <mesh position={[0, 0, 0.01]}>
+            <textGeometry args={[selectedNode, { size: 0.05, height: 0.01 }]} />
+            <meshBasicMaterial color="white" />
+          </mesh>
+        </mesh>
+      )}
+      
+      {/* Controller status indicator (helpful for debugging) */}
+      {controllerState.isConnected && (
+        <mesh position={[-1.5 * scale, -1 * scale, 0]}>
+          <planeGeometry args={[0.8, 0.2]} />
+          <meshBasicMaterial color="green" />
+          <mesh position={[0, 0, 0.01]}>
+            <textGeometry args={["Controller Connected", { size: 0.04, height: 0.01 }]} />
+            <meshBasicMaterial color="white" />
+          </mesh>
         </mesh>
       )}
     </group>
