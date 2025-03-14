@@ -57,7 +57,12 @@ const App: React.FC = () => {
 
   return (
     <WebGLContextHandler>
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
         <div className="app">
           <Navigation webXRSupported={webXRSupported} />
           <Suspense fallback={<Loader />}>

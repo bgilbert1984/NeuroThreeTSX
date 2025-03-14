@@ -297,25 +297,26 @@ export const TerrainMappingXR: React.FC<VisualizationProps> = ({ position = [0, 
           opacity={0.9}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
-          // Alpha attribute for fade-in effect
           onBeforeCompile={(shader) => {
+            // Add declarations at the top of vertex shader
             shader.vertexShader = shader.vertexShader.replace(
-              'attribute vec3 position;',
-              'attribute vec3 position;\nattribute float alpha;'
+              'varying vec3 vViewPosition;',
+              'varying vec3 vViewPosition;\nvarying float vAlpha;\nattribute float alpha;'
             );
-            shader.vertexShader = shader.vertexShader.replace(
-              '#include <common>',
-              '#include <common>\nvarying float vAlpha;'
-            );
+
+            // Update begin_vertex section
             shader.vertexShader = shader.vertexShader.replace(
               '#include <begin_vertex>',
               '#include <begin_vertex>\nvAlpha = alpha;'
             );
             
+            // Add varying declaration to fragment shader
             shader.fragmentShader = shader.fragmentShader.replace(
-              '#include <common>',
-              '#include <common>\nvarying float vAlpha;'
+              'varying vec3 vViewPosition;',
+              'varying vec3 vViewPosition;\nvarying float vAlpha;'
             );
+
+            // Update fragment color calculation
             shader.fragmentShader = shader.fragmentShader.replace(
               'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
               'gl_FragColor = vec4( outgoingLight, diffuseColor.a * vAlpha );'
