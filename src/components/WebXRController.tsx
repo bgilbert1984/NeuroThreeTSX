@@ -4,7 +4,7 @@ import { useXR, Interactive, Controllers, Hands, VRButton } from '@react-three/x
 import { PointerLockControls } from '@react-three/drei';
 import * as THREE from 'three';
 import * as d3 from 'd3';
-import { NetworkVisualizationXR } from './NetworkVisualizationXR';
+import { NetworkVisualizationXR } from './visualizations/NetworkVisualizationXR';
 
 // Xbox One Controller Support
 const XboxControllerInput = ({ onMove, onSelect }) => {
